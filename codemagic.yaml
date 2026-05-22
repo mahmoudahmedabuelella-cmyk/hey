@@ -1,0 +1,73 @@
+workflows:
+  android-workflow:
+    name: Android Build Workflow
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      groups:
+        - android-signing
+      node: v18.16.0
+    scripts:
+      - name: Unzip Project Files
+        script: |
+          # فك الضغط عن الملف بالاسم الجديد (2)
+          unzip -o "Chess_Elite_Android_Project (2).zip"
+      - name: Fix and Build Android APK
+        script: |
+          cd android
+          
+          # استبدال ملف الإعدادات بالنسخة النظيفة
+          cat <<EOF > settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+              repositories {
+                  google()
+                  mavenCentral()
+                  maven { url 'https://jitpack.io' }
+              }
+          }
+          rootProject.name = "Chess Elite"
+          include ':app'
+          EOF
+          
+          # سحب الـ Namespace وزرعها أوتوماتيك
+          REAL_PACKAGE=$(grep -o 'package="[^"]*"' app/src/main/AndroidManifest.xml | cut -d'"' -f2 | head -n 1)
+          if [ -z "$REAL_PACKAGE" ]; then
+            REAL_PACKAGE="com.chess.elite"
+          fi
+          perl -pi -e "s/android \{/android \{\n    namespace '${REAL_PACKAGE}'/g" app/build.gradle
+          
+          # إزالة الـ package والأيقونات القديمة لتفادي الأخطاء
+          perl -pi -e 's/package="[^"]*"//g' app/src/main/AndroidManifest.xml
+          perl -pi -e 's/android:icon="[^"]*"//g' app/src/main/AndroidManifest.xml
+          perl -pi -e 's/android:roundIcon="[^"]*"//g' app/src/main/AndroidManifest.xml
+          
+          # توحيد إصدارات الجافا والـ Kotlin
+          cat <<EOF >> app/build.gradle
+          
+          android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+          EOF
+          echo "kotlin.jvm.target.validation.mode=warning" >> gradle.properties
+          
+          # توليد ملف البناء وبدء الطبخ
+          gradle wrapper
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          chmod +x gradlew
+          ./gradlew assembleDebug
+    artifacts:
+      - "**/build/outputs/apk/**/*.apk"
