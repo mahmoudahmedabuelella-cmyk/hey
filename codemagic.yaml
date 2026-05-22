@@ -10,8 +10,8 @@ workflows:
     scripts:
       - name: Unzip Project Files
         script: |
-          # فك الضغط عن الملف بالاسم الجديد (2)
-          unzip -o "Chess_Elite_Android_Project (2).zip"
+          # فك الضغط عن الملف بالاسم الجديد (3)
+          unzip -o "Chess_Elite_Android_Project (3).zip"
       - name: Fix and Build Android APK
         script: |
           cd android
